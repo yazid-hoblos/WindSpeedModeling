@@ -1,12 +1,7 @@
 ---
-title: "DATA MINING - Weather"
+title: "DATA MINING - Weather Forecasting"
 author: "Yazid Hoblos"
 date: '2022-10-24'
-output:
-  html_document:
-    df_print: paged
-  pdf_document: default
-  word_document: default
 ---
 
 ```{r}
