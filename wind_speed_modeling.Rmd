@@ -1,0 +1,634 @@
+---
+title: "DATA MINING - Weather"
+author: "Yazid Hoblos"
+date: '2022-10-24'
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+
+```{r}
+df = read.csv('weather.csv')
+View(df)
+```
+
+The data attributes are as follows:
+
+1.	Date.Time:	Date-time reference for the recording
+
+2.	pressure (mbar): Internal pressure
+
+3.	temperature (degC): Temperature in Celsius
+
+4.	temperature.K. (K): Temperature in Kelvin
+
+5.	Tdew (degC): Temperature in Celsius relative to humidity. Dew Point is a measure of the absolute amount of water in the air
+
+6.	rh (%):	Relative Humidity, i.e. how saturated the air is with water vapor
+
+7.	Vpmax (mbar):	Saturation vapor pressure
+
+8.	Vpact (mbar):	Vapor pressure
+
+9.	Vpdef (mbar):	Vapor pressure deficit (Vpmax-Vpact)
+
+10.	sh (g/kg):	Specific humidity
+
+11.	H2OC (mmol/mol):	Water vapor concentration in air
+
+12.	rho (g/m ** 3):	Airtight
+
+13.	wv (m/s):	Wind speed
+
+14.	max. wv (m/s):	Maximum wind speed
+
+15.	wd (deg):	Wind direction in degrees
+
+The measures of this data set were reported each 10 minutes for several years.
+
+```{r}
+summary(df)
+```
+
+The summary shows that the data set has no missing values.
+
+```{r}
+cor(df[-1])
+```
+
+The wind velocity does not seem to be significantly correlated with any of the attributes, which seems unrealistic.
+
+```{r}
+boxplot(df[,13:14])
+```
+
+Getting back to the summary of the data attributes, and plotting the boxplot for wv and wvMax. It seems that a few missing values exist, but they were exchanged with very low negative values (-9999). 
+
+```{r}
+nrow(df)
+v = c()
+for(i in 1:nrow(df)){
+  if(df$wv[i]<0){
+    v=append(v,i)
+  }
+}
+df = df[-v,]
+nrow(df)
+v = c()
+for(i in 1:nrow(df)){
+  if(df$wvMax[i]<0){
+    v=append(v,i)
+  }
+}
+df = df[-v,]
+nrow(df)
+```
+
+Only a handful of rows were removed (20). 18 excluded due to -9999 value in wv column, and 2 from the wvMax column.
+
+```{r}
+summary(df$wv)
+summary(df$wvMax)
+```
+
+The summary shows the new range for wv and wvMax.
+
+```{r}
+cor(df[-1])
+```
+
+Getting rid of these values significantly changed the correlation coefficients.
+The value with the highest correlation with wv, seems to be rh (the relative himidity of the air), and as such its relation with the wind speed will be further examined using simple linear regression. Other values seems to be correlated with wv as well, such as the pressure, Vpdef (and thus Vpmax or Vpact or both, since it is abtained from them by substraction). Intuitively, wvMax is highly correlated with wv as well.
+
+
+```{r}
+model1= lm(wv~rh,df)
+summary(model1)
+```
+The summary shows that rh is correlated with wv (highly significant p-value), even though the R-squared is relatively small indicating that rh is not enough for this prediction. 
+
+The following plot further clarifies the distribution of the values of wv with respect to rh, which reflects why using the previous simple linear regression model was not highly predictive.
+
+```{r}
+plot(df$wv~df$rh,col='red',xlab='relative humidity',ylab='wind speed')
+abline(model1,col='blue')
+```
+As would be expected in this single linear model, the distribution of the values predicted by the model with respect to the observed values is similar to the one above.
+
+```{r}
+library(ggplot2)
+  
+plot_data <- data.frame(Predicted_value = predict(model1),  
+                       Observed_value = df$wv)
+  
+ggplot(plot_data, aes(x = Predicted_value, y = Observed_value)) +
+                  geom_point() 
+```
+
+
+```{r}
+plot(x=predict(model1),y=df$wv,col='blue')
+abline(predict(model1),df$wv,col='red')
+```
+
+Below are the results of applying plot() on the model itself, reflecting the distribution of the residuals with respect to the values fitted by the model, which is shown to be similar to the above graph with the points body bent down to account for both the resudials deviating positively and negatively from the true observed values. The last 2 plots displays some other derivations of this result.
+
+```{r}
+plot(model1)
+```
+
+Trying to establish a simple non-linear correlation by raising rh to differents powers, will show that only the 2nd and 3rd powers of rh will lead to an increase in R^2. Using all 3 in one model will reveal that rh^2 is the most significant, increasing R^2 from 0.097 to 0.101
+
+```{r}
+model2 = lm(wv~I(rh^3)+I(rh^2)+rh,df)
+summary(model2)
+model2 = lm(wv~I(rh^2),df)
+summary(model2)
+```
+
+The following plots clarifies why the 2 models above are slightly better, due to their ability to bent slightly to account for better correlation between the attributes. Their resemblance to the trend line displayed by geom_smooth().
+
+```{r}
+library(ggplot2)
+ggplot(data=df, aes(x=rh,y=wv)) +
+       geom_point() + 
+       geom_smooth(method="lm", formula=y~I(x^3)+I(x^2)+x)
+
+library(ggplot2)
+ggplot(data=df, aes(x=rh,y=wv)) +
+       geom_point() + 
+       geom_smooth(method="lm", formula=y~I(x^2))
+```
+```{r}
+ggplot(data=df)+
+  geom_point(mapping=aes(x=rh,y=wv))+
+  geom_smooth(mapping=aes(x=rh,y=wv))
+```
+
+
+```{r}
+ggplot(data=df,mapping=aes(x=wv,fill=wv))+
+  geom_boxplot()
+ggplot(data=df,mapping=aes(x=rh,fill=rh))+
+  geom_boxplot()
+```
+
+
+The above boxplots shows the presence of a signififcant number of outliers drifting from the majority of the points distribution. To study the effect of these outliers on the correlation between rh and wv, the outliers of wv will be excluded first, then those for rh.
+
+
+```{r}
+outliers = 0
+for (i in df$wv ){
+  if(i>5){
+    outliers=outliers+1
+  }
+}
+print(outliers)
+```
+```{r}
+outliers_rh=0
+for(i in 1:nrow(df)){
+  if(df$rh[i]<50){
+    outliers_rh=outliers_rh+1
+  }
+}
+print(outliers_rh)
+```
+Above are the counts for the selected outliers.
+
+```{r}
+v = c()
+for(i in 1:nrow(df)){
+  if(df$wv[i]>5){
+    v=append(v,i)
+  }
+}
+df = df[-v,]
+summary(df$wv)
+cor(df[-1])
+```
+Getting rid of wv outliers did not result in much changes in correlations. The major change was reductive, reducing the correlation between pressure and wv by 25% (studying the effect of this on the prediction of wv using the pressure reflected a significant of the R^2 value [not shown here]). Hence, the prediction of wv using rh would not differ much, as shown below, even though the distribution of the points will further increase as shown in the plot below.
+
+```{r}
+model3 = lm(wv~rh,df)
+summary(model3)
+```
+```{r}
+ggplot(data=df) + 
+  geom_point(mapping=aes(x=rh,y=wv,color=wv))
+```
+The new best-fit line and trend line obtained by geom_smooth are displayed below as well.
+
+```{r}
+plot(df$wv~df$rh,col='red',xlab='relative humidity',ylab='wind speed')
+abline(model3,col='blue')
+```
+
+```{r}
+ggplot(data=df)+
+  geom_point(mapping=aes(x=rh,y=wv,color=wv))+
+  geom_smooth(mapping=aes(x=rh,y=wv))
+```
+Next, the selected outliers for rh were removed, and the effect of this on the correlations between the values was examined.
+
+```{r}
+v = c()
+for(i in 1:nrow(df)){
+  if(df$rh[i]<50){
+    v=append(v,i)
+  }
+}
+df = df[-v,]
+summary(df$rh)
+print("")
+cor(df[-1])
+```
+This removal has a more significant reductive effect. The rh correlation was decreased y 0.05 (1/6), and most of the other correlations with wv were decreased as well, except for the correlation with the pressure which slightly increased. 
+
+Below the new distribution of wv~rh points is displayed, and it reflects the decrease in correlation.
+
+```{r}
+ggplot(data=df) + 
+  geom_point(mapping=aes(x=wv,y=rh,color=wv))   
+
+```
+
+This removal will also lead to significantly decreasing R^2 (30%). The new model and best-fit line are displayed below.
+
+```{r}
+model4 = lm(wv~rh,df)
+summary(model4)
+plot(df$wv~df$rh,col='red',xlab='relative humidity',ylab='wind speed')
+abline(model4,col='blue')
+```
+
+Due to the negative effects of eliminating the outliers on the correlations between wv and the other predictors. The outliers seems to be reflecting some important features, and thus proceeding with them included seems to be the better choice. To do so, the original data will be restored and only the rows with missing (or -9999) values for wv and wvMax will be removed as before.
+
+```{r}
+df = read.csv('weather.csv')
+v = c()
+for(i in 1:nrow(df)){
+  if(df$wv[i]<0 || df$wvMax[i]<0){
+    v=append(v,i)
+  }
+}
+df = df[-v,]
+```
+
+
+Next, other predictors will be selected to obtain the optimal wv prediction a linear regression model could get to. Based on the correlations between wv and the other predictors, as well as the correlations among the predictors and the pairs of plots between all of them (uploaded separately due to their dimension and very long processing time), it is to be expected that the linear regression model introduces a large margin of bias to this problem. In other words, using it is not likely to result in very accurate predictions. The goal here is trying to optimize the linear regression model used, instead of finding more accuarte models leading to better predictions.
+
+
+First, all the attributes will be included in the model (except the date being non-numerical). 
+
+```{r}
+model5 = lm(wv~.,df[-1])
+summary(model5)
+```
+As expected, this resulted in a very high accuracy of the predictions (R^2=0,92), due to including wvMax which is highly correlated with wv. This model also reflects a set of the attributes are not significantly correltted with wv (which can be deduced using the p-values). Surprisingly, rh is shown to be only slightly correlated with wv after the addition of the new factors, which reflect that its effect is not inherent for the most part, but a result of its interaction with 1 or more of the added predictors. 
+
+```{r}
+model7 = lm(wv~.,df[-1][-13])
+summary(model7)
+```
+Excluding wvMax from the model will result in a significant decrease in R^2 as expected. This exclusion also retored the high significance of the correlation between wv and rh, which reflects that its significance in the previous model was masked by the addition of wvMax. The other non-siginififcant predictors are not as much affected by this new change.
+
+```{r}
+model6 = lm(wv~.,df[-1][-14])
+summary(model6)
+```
+Excluding wd (the wind direction) from the model was also able to restore the high significance of rh only, which further suggests that only the presence of both wvMax and wd will mask the significance of rh. Thus, its role in wv prediction can only be neglected if both wvMax and wd are included in the model, but not otherwise. Since it will be trivial to predict wv based on wvMax, wvMax will be excluded in most of the future models, and as such rh should be included.
+
+Further study of the effect of excluding the other predictors from the model (not shown here), reflects that similarly to the results highlighted above, if wvMax is included and any of many of the other predictors is excluded, rh significance will diminish again.Yet the exclusion of wvMax will restore this significance no matter what other predictors are included or excluded. A similar effect is reflected for a set of other predictors, such as Vpact and sh.
+
+
+```{r}
+model = lm(wv~wvMax+wd,df)
+summary(model)
+model = lm(wv~wvMax,df)
+summary(model)
+```
+
+A further examination will reflect that wd will have only a slight effect on wc prediction in the presence on wvMax, even though it will remain highly significant, which reflect that it covers some aspects uncovered by wvMax regarding the wind speed. These aspects seem to be important but not resulting in a great increase in the predictions accuracy.
+
+Next, the prediction of wv using wvMax will be quickly highlighted, in case the maximum speed of wind is available and wv (the average one) is to be calculated.This prediction is apparently more suitable for linear regression, as shown in the best-fit line below.
+
+```{r}
+plot(y=df$wv,x=df$wvMax,col='blue')
+abline(model,col='red')
+```
+
+```{r}
+mean(summary(model)$residuals^2)
+```
+The mean of the residual errors (MSE) is relatively small compared to wv values ranging between 0 and 28.
+Below the way the above MSE was calculated is highlighted. The predictions of wv for each observation in the training set is obtained to this end.
+
+```{r}
+d = data.frame(pred=predict(model),actual=df$wv)
+mean((d$actual-d$pred)^2)
+```
+
+As expected the trend line below is very similar to the lineat best-fit line above, due to the relevance of the linear effect here, and absence of significant bias.
+
+```{r}
+ggplot(data=df)+
+  geom_point(mapping=aes(x=wv,y=wvMax,color=wv))+
+  geom_smooth(mapping=aes(x=wv,y=wvMax))
+```
+Next, the selection of the minimum set of features that can lead to the optimal wv prediction (excluding wvMax) will be investigated.
+Presented below are the summaries of the model 7 (with all predictors except wvMax), model 1 (with only rh as predictor), and 1 new model. Model 7 displays an accuracy roughly double that of model 1 (as can be seen through R^2). By creating a new model 8, with rh^2 (predicted to be slightly better than rh before) and pressure as parameters, R^2 of 0.147 appears, which is not much worse than 0.18 of model 7, especially considering that addin new variables to the model will slightly increase R^2 no matter the significance of these additions.
+
+```{r}
+summary(model7)
+summary(model1)
+model8 = lm(wv~pressure+I(rh^2),df)
+summary(model8)
+```
+Relying on this models results, the pairs plots, and the correlations between the attributes, the following model using 5 out of the 13 attributes can be deduced, with accuracy slightly better than model 7 with all attributes included. 
+
+There seems to exist several interactions between different sets of attributes within the data. After investigating a set of these interactions within draft models, 2 of these interactions (the rh-temperature and the rh-pressure-vaporPressure interactions) were highlighted. Using any of {Tdew;temprature;temperature.K.} * rh, and any of {Vpmax;Vpdef;Vpact} * rh * pressure, leads to similar outcomes. 
+Further accounts for sh/rho/H2OC, which are all correlated with rh and {Tdew;temprature;temperature.K.} does not seem to add much to the model, reflecting that what they are telling about wv is already given by the used predictors. 
+
+Furthermore, continuing to use rh^2 especially in the context of rh interaction with the temperature seems to lead to a better model, which is not the case for rh interaction with the pressure, whereby using rh or rh^2 is immaterial. 
+
+It is to be noted that the pressure is quite distinct, i.e. not highly correlated with, (yet interactive with ) the other 3 associated correlated interavtive values {Vpmax/Vpdef/Vpact}, and thus is the need to include it along with rh and Vpmax. The choice of Vpmax seems to be optimal due to it being the one with the highest correlation with rh (0.5).
+
+The account of the wind direction seems to be adding a value to the model as well.
+
+This suggested model has all its predictors and their included interactions highly significant, and it leads to better R^2 than the model 7 accounting for all the predictors.
+
+```{r}
+model11 = lm(wv~I(rh^2)*temperature+rh*pressure*Vpmax+wd,df)
+summary(model11)
+```
+A further investigation shows that due to further interactions between the different interactive sets (2 among which were highlighted before),accounting to as much of this interactivity with the right choice of predictors leads to even better accuracy, as highlighted in the updated model 11 below, where the accuracy of R^2 reached 0.215.
+
+This model seems to be the optimal model that may be reached. It accounts for the same 5 predictors of the previous model, along with rho, and accounts for the interactive effects between all of them, which does not seem surprising giving the physical nature of these attributes.
+
+```{r}
+model11 = lm(wv~I(rh^2)*Vpmax*temperature*pressure*rho*wd,df)
+summary(model11)
+```
+
+Below a comparison between model1 (R^2=0.09) and model11 (R^2=0.215) shows a better more restrictive distribution of model11 predicted values with respect to the observed actual ones, as opposed to model 1 where the distribution of the points is more disperse accounting for more varaiability.
+
+```{r}
+plot_data <- data.frame(Predicted_value = predict(model11),  
+                       Observed_value = df$wv)
+  
+ggplot(plot_data, aes(x = Predicted_value, y = Observed_value)) +
+                  geom_point()
+
+plot_data <- data.frame(Predicted_value = predict(model1),  
+                       Observed_value = df$wv)
+  
+ggplot(plot_data, aes(x = Predicted_value, y = Observed_value)) +
+                  geom_point()
+```
+
+This can be also highlighted by the fact that MSE_model11 is smaller than MSE_model1.
+
+```{r}
+mean(summary(model1)$residuals^2)
+mean(summary(model11)$residuals^2)
+```
+
+Next, the data will be splitted into 80% training set and 20% testing set.
+
+```{r}
+library(dplyr)
+df$id = seq.int(nrow(df))
+set.seed(111,sample.kind='Rejection')
+train = df %>% slice_sample(prop=0.8)
+nrow(train)
+test=anti_join(df,train,by='id')
+nrow(test)
+```
+
+The id column added before for splitting is eliminated, and both models 11 and 1 are trained on the training data set.
+Following this, the predictions of each model for the values of wv for the observations of test are stored in pred1 and pred2.
+
+```{r}
+train = train[-16]
+test = test[-16]
+
+model11 = lm(wv~I(rh^2)*Vpmax*temperature*pressure*rho*wd,train)
+model1 = lm(wv~rh,train)
+
+pred1 = predict.lm(model11,test)
+length(pred1)
+pred2 = predict.lm(model1,test)
+
+```
+The MSE for both is then calculated, and it can be seen that it is not much off the previous training MSE calculated using the whole dataset as training set.
+It is to be noticed though that this testing MSE is expected to be higher than that the training MSE of before, which is the case here.
+
+```{r}
+d = data.frame(pred1,actual=test$wv)
+mean((d$actual-d$pred1)^2)
+d = data.frame(pred2,actual=test$wv)
+mean((d$actual-d$pred2)^2)
+```
+
+
+
+In an attempt to further increase the accuracy of the model, the date attribute addition to the model will be further investigated.
+The month was extracted from each of the given date and time attributes, and a new column date was added accounting for the month the data was reported.
+
+```{r, eval=F}
+df$date = 0
+for(i in 1:nrow(df)){
+  df$date[i]=substr(df[i,1],4,5)
+}
+```
+
+This updated dataset was then saved in a new dataframe for future use.
+
+```{r, eval=F}
+write.csv(df,"newweather.csv")
+```
+
+
+```{r}
+new_df = read.csv('newweather.csv')
+unique(new_df$date)
+```
+The 2 following plots account for the variations in the distribution of wv and rh relation along the 12 months of the year. Patterns seem to emerge, as can be seen clearly in the second plot, whereby the dataset of before is shown to be equivalent to the overlap of 12 different datasets accounting for the 12 months of the year, each displaying its own distribution.
+
+```{r}
+new_df$date= as.factor(new_df$date)
+ggplot(data=new_df) + 
+  geom_point(mapping=aes(x=wv,y=rh,color=date))
+```
+
+
+```{r}
+ggplot(data=new_df)+
+  geom_point(mapping=aes(x=wv,y=rh,color=date))+
+  facet_wrap(~date,nrow=2)+
+  geom_smooth(mapping=aes(x=wv,y=rh))
+```
+
+
+```{r}
+new_df$date = as.factor(new_df$date)
+updated_m11 = lm(wv~I(rh^2)*Vpmax*temperature*pressure*rho*wd+date,new_df)
+summary(updated_m11)
+```
+
+As can be shown the account for the date predictor further increased the model accuracy (R^2=0.253).
+
+Categorizing months 12/11/1/2 and 3/4/5/6 and 7/8/9/10 together will into groups 1,2, and 3 respectively, and using the new date123 predictor storing the values of these 3 categories instead of date (storing 12 category) will only lead to a slight decrease in the model accuracy.
+
+```{r, eval=F}
+for(i in 1:nrow(df)){
+  if (new_df$date[i]==11 || new_df$date[i]==12 || new_df$date[i]==1 || new_df$date[i]==2){
+    new_df$date123[i]=1
+  }else if (new_df$date[i]==3 || new_df$date[i]==4 || new_df$date[i]==5 || new_df$date[i]==6){
+    new_df$date123[i]=2
+  }else{
+    new_df$date123=3
+  }
+}
+
+write.csv(new_df,'newweather123.csv')
+```
+
+
+```{r}
+d = read.csv("newweather123.csv")
+View(d)
+```
+
+```{r}
+d$date123 = as.factor(d$date123)
+memory.limit(5000) # Just used to let R continue processing after the allocated memory was filled
+summary(d$date123)
+model123 = lm(wv~I(rh^2)*Vpmax*temperature*pressure*rho*wd+date123,d)
+summary(model123)
+```
+
+A new sub categorization of the dates, which is more reliable on their similar distributions (as can be predicted through the plots above), without account to the dates being equally distributed, is presented below. 
+
+```{r, eval=F}
+for(i in 1:nrow(d)){
+  if (d$date[i]==4 || d$date[i]==5 || d$date[i]==6){
+    d$date123[i]=2
+  }else if (d$date[i]==10 || d$date[i]==2 ||d$date[i]==3){
+    new_df$date123[i]=3
+  }
+}
+
+write.csv(new_df,'newweather123updated.csv')
+```
+
+```{r}
+data = read.csv('newweather123updated.csv')
+data$date123 = as.factor(data$date123)
+model123 = lm(wv~I(rh^2)*Vpmax*temperature*pressure*rho*wd+date123,data)
+summary(model123)
+```
+As the model summary shows, it leads to a further increase in the accuracy, indicating that the additional accuracy that was introduced by adding the date predictor (which as discussed before reflects that each month seems to have its own distribution of values for the predictors and this data set is the overlap of all of them), has to do with the fact that different months share similar distributions between each other, and 3 such sets of months with similar distributions seem to emerge by investigating the data. That is why accounting for this new date123 predictor is equivalent to accounting for date, and both lead to an increase in the model accuracy. 
+
+
+
+Next, the attempt of wv prediction for only one month (below month 1 is chosen), over the different years, will be investigated.
+
+```{r}
+dd = read.csv('newweather.csv')
+v=c()
+for(i in 1:nrow(dd)){
+  if(dd$date[i]==1){
+    v=append(v,i)
+  }
+}
+
+df_01 = dd[v,]
+```
+
+```{r}
+View(df_01)
+```
+
+```{r}
+model_01 = lm(wv~I(rh^2)*Vpmax*temperature*pressure*rho*wd,df_01)
+summary(model_01)
+```
+
+Interestingly, the prediction of wv for month 1 alone using the same set of predictors of the final model reached before (model 11), will lead to a significant increase in R^2 to 0.353, yet it will make all the coefficients of all the predictors and their interactions non-significant. 
+
+This loss of significance cannot be easily interpretable and it requires repeating the same steps for the other months, and further investigating the data distribution within the current month, which is out of the scope of this investigation, that is trying to optimize R^2 to get better wv predictions using linear regression.
+However, it can be observed that going back to using the first version of the final model (model 11), whereby not all the predictors are interacted, yet there is 2 bodied of interacting predictors each of which has rh (here the addition of wd to the interaction as well seems to be better for the model accuracy), restores the significance of most predictors and their interactions, with only a slight decrease in the model accuracy.
+
+This new better accuracy of prediction using the data from only 1 moth across the years suggest that this dataset is better splitted into 12, each accounting for the predictions of its corresponding month wv. This can be further optimized by using the subcategorization of the 12 months into 3 classes discussed before, which was shown before to be able to substitute the use of the 12 categories of the moths by only its 3 classes. In this way, the dataset will be splitted into only 3 datasets according to the 1/2/3 classes created before, and predictions will be done correspondingly.
+
+```{r}
+model_01 = lm(wv~rh*Vpmax*pressure+I(rh^2)*temperature*rho*wd,df_01)
+summary(model_01)
+```
+
+Finally, applying the application of these 2 last models on month 1 data obtained from 1 year only (below 2009 is chosen), will be investigated.
+
+```{r}
+d1 = df_01[1:4463,]
+final = lm(wv~I(rh^2)*Vpmax*temperature*pressure*rho*wd,d1)
+summary(final)
+```
+
+As can be seen the final model accuracy reached was significantly increase by this new approach (R^2=0.46). It can be also noticed that all the predictors and their interactions are significant in this case, unlike the previous one accounting for month 1 across the years. 
+This increase in the accuracy of this model compared to the one before (accounting for month 1 data across years) is expected to be due to climate changes over the years resulting in changes of the patters of the features across years.
+
+Below, the application of the model proposed above to restore the significance of the coefficients is applied in this setting, and it can be seen that it reduces R^2 significantly and also distorts the coefficients significance. This further confirms the optimality of the above model (model 11 reached before) compared to all other proposed models, while the investigation of these patterns of change in the coefficients significance is to be left for future accounts.
+
+```{r}
+nn = lm(wv~rh*Vpmax*pressure+I(rh^2)*temperature*rho*wd,d1)
+summary(nn)
+```
+
+Finally, the new distribution of the predicted and actual values for the final model is displayed, showing a much higher correspondance compared to the 2 similar plots presented before for model1 and model11.
+
+```{r}
+plot_data <- data.frame(Predicted_value = predict(final),  
+                       Observed_value = d1$wv)
+  
+ggplot(plot_data, aes(x = Predicted_value, y = Observed_value)) +
+                  geom_point()
+
+```
+The MSE for this final model reached 1.25 as compared to 1.86 for model 11 (around 33% decrease), and 2.14 for model1 (around 41% decrease).
+
+```{r}
+mean(summary(model11)$residuals^2)
+mean(summary(final)$residuals^2)
+```
+
+
+<!---
+
+The effect of the time of the prediction was also checked for by the following extaction procedure. Yet the addition of time predictor to the model did not result in a sugnificant accuracy improvement, so this part ws not included
+
+```{r, eval=F}
+colnames(data)[1]='date'
+v=c()
+for(i in 1:nrow(data)){
+  if (substr(data$date[i],4,5)=='01'){
+  if(substr(data$date[i],4,4)=='0'){
+    data$time[i]=strtoi(substr(data$date[i],13,13))
+  }else{
+    data$time[i]=strtoi(substr(data$date[i],12,13))
+  }
+  data$date[i]=substr(data$date[i],4,5)}
+  else{
+    v=append(v,i)
+  }}
+data = data[-v,]
+unique(data$date)
+unique(data$time)
+```
+
+
+--->
