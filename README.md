@@ -14,7 +14,7 @@ A detailed commentary on all attempts and findings is provided in an R Markdown 
 
 - **Multiple Regression:** [multiple_linear_regression Text](multiple_linear_regression.R) incorporates multiple independent variables to enhance the accuracy of wind speed predictions.
 
-- **Interaction Effects:** [Linkinteraction_effectText](interaction_effect.R) accounts for interaction effects between variables, providing a more nuanced understanding of the relationships involved.
+- **Interaction Effects:** [interaction_effectText](interaction_effect.R) accounts for interaction effects between variables, providing a more nuanced understanding of the relationships involved.
 
 - **Qualitative Predictors** [qualitative_predictors](qualitative_predictors.R) is used to incorporate qualitative factors relevant to the wind speed prediction, mainly the dates of the data collection.
 
