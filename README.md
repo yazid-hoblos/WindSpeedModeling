@@ -10,11 +10,11 @@ A detailed commentary on all attempts and findings is provided in an R Markdown 
 
 - **Simple Linear Regression:** [simple_linear_regression](simple_linear_regression.R) utilizes basic linear regression to establish a foundation for wind speed modeling. 
 
-- **Non-Linear Transformation:** [non_linear_transformations Text](non_linear_transformations.R) explores non-linear transformations to capture complex patterns in wind speed data.
+- **Non-Linear Transformation:** [non_linear_transformations](non_linear_transformations.R) explores non-linear transformations to capture complex patterns in wind speed data.
 
-- **Multiple Regression:** [multiple_linear_regression Text](multiple_linear_regression.R) incorporates multiple independent variables to enhance the accuracy of wind speed predictions.
+- **Multiple Regression:** [multiple_linear_regression](multiple_linear_regression.R) incorporates multiple independent variables to enhance the accuracy of wind speed predictions.
 
-- **Interaction Effects:** [interaction_effectText](interaction_effect.R) accounts for interaction effects between variables, providing a more nuanced understanding of the relationships involved.
+- **Interaction Effects:** [interaction_effect](interaction_effect.R) accounts for interaction effects between variables, providing a more nuanced understanding of the relationships involved.
 
 - **Qualitative Predictors** [qualitative_predictors](qualitative_predictors.R) is used to incorporate qualitative factors relevant to the wind speed prediction, mainly the dates of the data collection.
 
